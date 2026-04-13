@@ -109,7 +109,6 @@ function GrowingTreesLoop()
         if string.find(objbp.BlueprintId, "tree") then
             local objpos = obj:GetPosition()
             table.insert(treeList, { bp = objbp, pos = VECTOR3(objpos.x, objpos.y, objpos.z), unit = obj, time = 0 })
-            myTable = {name = "Alice", age = 30}
         end
     end
 
