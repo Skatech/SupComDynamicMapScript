@@ -25,19 +25,12 @@ local function HasValue(list, value)
 end
 
 local function SpawnResource(position, restype)
-    local bp, albedo, size, lod
-    if restype == "Mass" then
-        albedo = "/env/common/splats/mass_marker.dds"
-        bp = "/env/common/props/massDeposit01_prop.bp"
-        size = 2
-        lod = 100
-    else
-        albedo = "/env/common/splats/hydrocarbon_marker.dds"
-        bp = "/env/common/props/hydrocarbonDeposit01_prop.bp"
-        size = 6
-        lod = 200
-    end
-    
+    local ismass = restype == "Mass"
+    local bp = ismass and "/env/common/props/massDeposit01_prop.bp" or "/env/common/props/hydrocarbonDeposit01_prop.bp"
+    local albedo = ismass and "/env/common/splats/mass_marker.dds" or "/env/common/splats/hydrocarbon_marker.dds"
+    local size = ismass and 2 or 6
+    local lod = ismass and 100 or 200
+
     CreateResourceDeposit(restype, position[1], position[2], position[3], size / 2)
     CreatePropHPR(bp, position[1], position[2], position[3], Random(0, 360), 0, 0)
     CreateSplat(position, 0, albedo, size, size, lod, 0, -1, 0)
