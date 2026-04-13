@@ -4,9 +4,10 @@ Allow players fine adjust map resources for each game
 
 ## Features
 - Option to remove mass/hydro deposits associated with unused army slots
+- Adjust amount of army slots associated mass/hydro deposits
 - Adjust amount of common map mass/hydro deposits
 - Adjust resource amount in natural reclaim (trees/rocks)
-- Forest regrow function with adjustable cooldown and chance
+- Forest regrow function with adjustable regrow cooldown and chance
 
 ## Performance
 - Resource adjust functions finishing before mission init ends and not affects performance
