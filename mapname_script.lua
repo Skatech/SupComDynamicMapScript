@@ -15,14 +15,28 @@ function OnStart(scenario)
     ForkThread(GrowingTreesLoop)
 end
 
-local function HasValue(list, value)
-    for _, e in ipairs(list) do
-        if e == value then
+table.hasValue = function(array, value)
+    for i = 1, table.getn(array) do
+        if value == array[i] then
             return true
         end
     end
     return false
 end
+
+table.convertValues = function(array, converter)
+    local result = {}
+    for i = 1, table.getn(array) do
+        table.insert(result, converter(array[i], i))
+    end
+    return result
+end
+
+local helpers = {
+    armyIndexFromName = function(name)
+        return tonumber(string.match(name, "ARMY_(.*)"))
+    end
+}
 
 local function SpawnResource(position, restype)
     local ismass = restype == "Mass"
@@ -47,10 +61,10 @@ function ScenarioUtils.CreateResources()
     LOG("ADAPTIVE: Options.limitHydrocarbonsPerSpawn:", limitHydrocarbonsPerSpawn)
     local limitMassDepositsPerSpawn = ScenarioInfo.Options.limitMassDepositsPerSpawn
     LOG("ADAPTIVE: Options.limitMassDepositsPerSpawn:", limitMassDepositsPerSpawn)
-    local armyList = ListArmies()
+    local activeArmies = table.convertValues(ListArmies(), helpers.armyIndexFromName)
 
     for aindex, amexes in ipairs(ArmySlotsMexes) do
-        local active = spawnUnsedSlotResources or HasValue(armyList, "ARMY_" .. aindex)
+        local active = spawnUnsedSlotResources or table.hasValue(activeArmies, aindex)
         for residx, resnum in ipairs(amexes) do
             if active and residx <= limitMassDepositsPerSpawn then
                 table.insert(slotsActive, "Mass " .. resnum)
@@ -61,7 +75,7 @@ function ScenarioUtils.CreateResources()
     end
 
     for aindex, ahydro in ipairs(ArmySlotsHydro) do
-        local active = spawnUnsedSlotResources or HasValue(armyList, "ARMY_" .. aindex)
+        local active = spawnUnsedSlotResources or table.hasValue(activeArmies, aindex)
         for residx, resnum in ipairs(ahydro) do
             if active and residx <= limitHydrocarbonsPerSpawn then
                 table.insert(slotsActive, "Hydrocarbon " .. resnum)
@@ -78,10 +92,10 @@ function ScenarioUtils.CreateResources()
 
     for mrkname, marker in pairs(ScenarioUtils.GetMarkers()) do
         if marker.resource then
-            if HasValue(slotsActive, mrkname) then
+            if table.hasValue(slotsActive, mrkname) then
                 SpawnResource(marker.position, marker.type, true)
                 LOG("Spawned active slot resource:", mrkname)
-            elseif not HasValue(slotsRemove, mrkname) and (
+            elseif not table.hasValue(slotsRemove, mrkname) and (
                     (marker.type == "Mass" and commonMapMassDepositsSpawnChance >= math.random()) or
                     (marker.type == "Hydrocarbon" and commonMapHydrocarbonsSpawnChance >= math.random())) then
                 SpawnResource(marker.position, marker.type, true)
@@ -99,8 +113,8 @@ function GrowingTreesLoop()
         return
     end
     LOG("========================================")
-    LOG("REGROW: Options.forestRegrowChance:", forestRegrowChance)
-    LOG("REGROW: Options.forestRegrowDelay:", forestRegrowDelay)    
+    LOG("REGROW: Options.forestRegrowChance:", math.floor(forestRegrowChance * 100) .. " prc/min")
+    LOG("REGROW: Options.forestRegrowDelay:", forestRegrowDelay .. " min")
     LOG("REGROW: Caching Trees...")
     local treeList = {}
 
@@ -115,11 +129,7 @@ function GrowingTreesLoop()
     LOG("REGROW: Tree Records Cached:", table.getn(treeList))
     local timeLoop = 1
     local partSize = math.floor(table.getn(treeList) / 60)
-    if partSize < 1 then
-        LOG("REGROW: Function stopped(Not Enough Tree Objects)")
-        return
-    end
-    WaitSeconds(5)
+    WaitSeconds(1)
 
     while partSize > 0 do
         local waitspot = partSize
@@ -142,4 +152,6 @@ function GrowingTreesLoop()
         end
         timeLoop = timeLoop + 1
     end
+
+    LOG("REGROW: Function stopped(Not Enough Tree Objects)")
 end
