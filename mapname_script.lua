@@ -1,7 +1,7 @@
 local ScenarioUtils = import('/lua/sim/ScenarioUtilities.lua')
 local ScenarioFramework = import('/lua/ScenarioFramework.lua')
 
-local ArmySlotsMexes = { {1}, {2}, {3} }
+local ArmySlotsMexes = { {0,2,4,6}, {1,3,5,7}, {32,34,36,48}, {33,35,37,49} }
 local ArmySlotsHydro = { }
 
 function OnPopulate()
@@ -34,42 +34,45 @@ end
 
 local helpers = {
     armyIndexFromName = function(name)
-        return tonumber(string.match(name, "ARMY_(.*)"))
+        return tonumber(string.match(name, "ARMY_(.*)") or 0)
+    end,
+
+    createResourceID = function(resnum, trueMassFalseHydro)
+        return trueMassFalseHydro and (resnum > 9 and "Mass " or "Mass 0") .. resnum
+            or (resnum > 9 and "Hydrocarbon " or "Hydrocarbon 0") .. resnum
+    end,
+
+    spawnResource = function(position, restype)
+        local ismass = restype == "Mass"
+        local bp = ismass and "/env/common/props/massDeposit01_prop.bp" or "/env/common/props/hydrocarbonDeposit01_prop.bp"
+        local albedo = ismass and "/env/common/splats/mass_marker.dds" or "/env/common/splats/hydrocarbon_marker.dds"
+        local size = ismass and 2 or 6
+        local lod = ismass and 100 or 200
+    
+        CreateResourceDeposit(restype, position[1], position[2], position[3], size / 2)
+        CreatePropHPR(bp, position[1], position[2], position[3], Random(0, 360), 0, 0)
+        CreateSplat(position, 0, albedo, size, size, lod, 0, -1, 0)
     end
 }
 
-local function SpawnResource(position, restype)
-    local ismass = restype == "Mass"
-    local bp = ismass and "/env/common/props/massDeposit01_prop.bp" or "/env/common/props/hydrocarbonDeposit01_prop.bp"
-    local albedo = ismass and "/env/common/splats/mass_marker.dds" or "/env/common/splats/hydrocarbon_marker.dds"
-    local size = ismass and 2 or 6
-    local lod = ismass and 100 or 200
-
-    CreateResourceDeposit(restype, position[1], position[2], position[3], size / 2)
-    CreatePropHPR(bp, position[1], position[2], position[3], Random(0, 360), 0, 0)
-    CreateSplat(position, 0, albedo, size, size, lod, 0, -1, 0)
-end
-
 function ScenarioUtils.CreateResources()
     LOG("ADAPTIVE: ScenarioUtils.CreateResources()")
-    local slotsActive = {}
-    local slotsRemove = {}
-
     local spawnUnsedSlotResources = ScenarioInfo.Options.unusedSlotResources > 0
     LOG("ADAPTIVE: Options.unusedSlotResources:", spawnUnsedSlotResources and "Untouch" or "Despawn(default)")
     local limitHydrocarbonsPerSpawn = ScenarioInfo.Options.limitHydrocarbonsPerSpawn
     LOG("ADAPTIVE: Options.limitHydrocarbonsPerSpawn:", limitHydrocarbonsPerSpawn)
     local limitMassDepositsPerSpawn = ScenarioInfo.Options.limitMassDepositsPerSpawn
     LOG("ADAPTIVE: Options.limitMassDepositsPerSpawn:", limitMassDepositsPerSpawn)
-    local activeArmies = table.convertValues(ListArmies(), helpers.armyIndexFromName)
+    local activeArmies = table.convertValues(ListArmies(), helpers.armyIndexFromName)    
+    local slotsActive, slotsRemove = {}, {}
 
     for aindex, amexes in ipairs(ArmySlotsMexes) do
         local active = spawnUnsedSlotResources or table.hasValue(activeArmies, aindex)
         for residx, resnum in ipairs(amexes) do
             if active and residx <= limitMassDepositsPerSpawn then
-                table.insert(slotsActive, "Mass " .. resnum)
+                table.insert(slotsActive, helpers.createResourceID(resnum, true))
             else
-                table.insert(slotsRemove, "Mass " .. resnum)
+                table.insert(slotsRemove, helpers.createResourceID(resnum, true))
             end
         end
     end
@@ -78,9 +81,9 @@ function ScenarioUtils.CreateResources()
         local active = spawnUnsedSlotResources or table.hasValue(activeArmies, aindex)
         for residx, resnum in ipairs(ahydro) do
             if active and residx <= limitHydrocarbonsPerSpawn then
-                table.insert(slotsActive, "Hydrocarbon " .. resnum)
+                table.insert(slotsActive, helpers.createResourceID(resnum, false))
             else
-                table.insert(slotsRemove, "Hydrocarbon " .. resnum)
+                table.insert(slotsRemove, helpers.createResourceID(resnum, false))
             end
         end
     end
@@ -93,13 +96,13 @@ function ScenarioUtils.CreateResources()
     for mrkname, marker in pairs(ScenarioUtils.GetMarkers()) do
         if marker.resource then
             if table.hasValue(slotsActive, mrkname) then
-                SpawnResource(marker.position, marker.type, true)
-                LOG("Spawned active slot resource:", mrkname)
+                helpers.spawnResource(marker.position, marker.type)
+                LOG("  - spawned active slot resource:", mrkname)
             elseif not table.hasValue(slotsRemove, mrkname) and (
                     (marker.type == "Mass" and commonMapMassDepositsSpawnChance >= math.random()) or
                     (marker.type == "Hydrocarbon" and commonMapHydrocarbonsSpawnChance >= math.random())) then
-                SpawnResource(marker.position, marker.type, true)
-                LOG("Spawned common map resource:", mrkname)
+                helpers.spawnResource(marker.position, marker.type)
+                LOG("  - spawned common map resource:", mrkname)
             end
         end
     end
